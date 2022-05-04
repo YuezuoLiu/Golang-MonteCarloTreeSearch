@@ -1,5 +1,4 @@
 import numpy as np
-import pygame
 from matplotlib import pyplot as plt
 import sys
 import time

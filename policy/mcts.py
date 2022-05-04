@@ -8,12 +8,13 @@ sys.path.append(base_dir)
 from args.args import *
 from game.game import Golang
 from policy.bot import select_bot_move
-from utils.utils import render_board_matrix, judge
+from utils.utils import judge
 
 
 class Tree_node:
-    def __init__(self, branch_num, board_matrix, next_player, pos, parent=None):
+    def __init__(self, branch_num, board_matrix, next_player, pos, parent=None, is_root=False):
         # next_turn: black=1, white=-1, starting from this situation, which player makes next move
+        self.is_root = is_root   # 只有根节点扩张子节点不需要考虑visit count threshold
         self.next_player = next_player
         self.row = pos[0]      # pos = (row_idx, col_idx)
         self.col = pos[1]
@@ -22,7 +23,7 @@ class Tree_node:
         self.total_win = 0    # value = total_win / C
         self.childs = [None for _ in range(branch_num)]
         self.parent = parent
-        
+       
 
 class Monte_carlo_tree():
     def __init__(self, start_board_matrix, next_player, C, start_pos):
@@ -30,7 +31,7 @@ class Monte_carlo_tree():
         self.C = C
         self.epsilon = 0.01
         self.simulate_num = 0
-        self.root = Tree_node(BOARD_LEN * BOARD_LEN, start_board_matrix, next_player, start_pos)
+        self.root = Tree_node(BOARD_LEN * BOARD_LEN, start_board_matrix, next_player, start_pos, is_root=True)
     
     def uct(self, vi, ni, np):
         return vi + self.C * math.sqrt(math.log(np) / (ni + self.epsilon))
@@ -52,6 +53,11 @@ class Monte_carlo_tree():
         end, winner = judge(start_node.board_matrix, (start_node.row, start_node.col))
         if end: return True, start_node
 
+        #visit_count小于threshold的一定是叶节点，根节点扩张不受约束
+        if start_node.visit_count < EXPAND_THRESHOLD and start_node.is_root == False:
+                return True, start_node
+        
+        # visit_count > threshold
         # if unvisited(None) childs exists, select them first, and expand the tree
         unvisited_child_idx = self.find_unvisited_child(start_node)
         if unvisited_child_idx is not None:
